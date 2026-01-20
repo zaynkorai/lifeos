@@ -5,7 +5,7 @@ import { taskService } from '../services/taskService.js';
 export async function taskRoutes(fastify: FastifyInstance) {
 
     // GET /api/tasks
-    fastify.get('/', async (request, reply) => {
+    fastify.get('/', async (_request, reply) => {
         const tasks = await taskService.findAll();
         return reply.send(tasks);
     });
