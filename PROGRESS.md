@@ -67,6 +67,17 @@
 | Row Level Security | ✅ Done | Jan 20, 2026 | All tables protected |
 | Helper Functions | ✅ Done | Jan 20, 2026 | AI usage increment, reset |
 
+### Frontend
+| Item | Status | Date | Notes |
+|------|--------|------|-------|
+| API Client | ✅ Done | Jan 20, 2026 | Typed fetch wrapper with auth |
+| Tasks Store | ✅ Done | Jan 20, 2026 | Zustand with optimistic updates |
+| TasksList Component | ✅ Done | Jan 20, 2026 | Full CRUD UI with scheduling display |
+| Dashboard Layout | ✅ Done | Jan 20, 2026 | Sidebar, main, stats grid |
+| Plan My Day Button | ✅ Done | Jan 20, 2026 | AI scheduling trigger |
+| Theme Toggle | ✅ Done | Jan 20, 2026 | Light/dark/system modes |
+| Dashboard Styles | ✅ Done | Jan 20, 2026 | 570+ lines of CSS added |
+
 ---
 
 ## 🚧 In Progress
@@ -84,17 +95,15 @@
 |----------|------|--------|
 | P0 | Set up Supabase Cloud Project | 30 min |
 | P0 | Run database migrations | 15 min |
+| P0 | Supabase Auth integration (frontend) | 2 hours |
 | P0 | Stripe billing integration | 2 hours |
-| P0 | Google Calendar OAuth + Sync | 4 hours |
-| P1 | Frontend Tasks UI | 4 hours |
-| P1 | Frontend Dashboard | 4 hours |
-| P1 | "Plan My Day" UI button | 2 hours |
+| P1 | Google Calendar OAuth + Sync | 4 hours |
 
 ### Week 2
 | Priority | Item | Effort |
 |----------|------|--------|
 | P0 | Keyboard shortcuts | 4 hours |
-| P0 | Landing page | 4 hours |
+| P0 | Landing page update | 2 hours |
 | P1 | Mobile app scaffold (React Native) | 8 hours |
 | P1 | Time-boxing UI | 4 hours |
 
@@ -127,6 +136,20 @@ backend/
 │       │   └── auth.ts              # JWT auth middleware
 │       └── utils/                   # (empty)
 ├── .env.example                     # Updated with all vars
+└── package.json                     # Updated with deps
+
+frontend/
+├── src/
+│   ├── lib/
+│   │   └── api.ts                   # API client wrapper
+│   ├── stores/
+│   │   └── tasks.store.ts           # Zustand tasks store
+│   ├── components/
+│   │   └── tasks/
+│   │       └── TasksList.tsx        # Tasks list component
+│   └── app/
+│       └── dashboard/
+│           └── page.tsx             # Dashboard page (updated)
 └── package.json                     # Updated with deps
 
 supabase/
@@ -184,6 +207,7 @@ GOOGLE_CLIENT_SECRET=
 | Tasks API | ❌ | ❌ | ✅ (health check works) |
 | AI API | ❌ | ❌ | ❌ (needs API key) |
 | Auth | ❌ | ❌ | ❌ (needs Supabase) |
+| Dashboard UI | ❌ | ❌ | ✅ (verified in browser) |
 
 ---
 
@@ -195,8 +219,13 @@ cd backend
 cp .env.example .env
 # Fill in environment variables
 pnpm dev
-
 # Server runs at http://localhost:8001
+
+# Frontend
+cd frontend
+pnpm dev
+# Server runs at http://localhost:3001
+# Dashboard at http://localhost:3001/dashboard
 ```
 
 ---

@@ -26,7 +26,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    
+
     const getSystemTheme = (): 'light' | 'dark' => {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     };
@@ -38,7 +38,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     if (theme === 'system') {
       applyTheme(getSystemTheme());
-      
+
       // Listen for system theme changes
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handler = (e: MediaQueryListEvent) => applyTheme(e.matches ? 'dark' : 'light');
@@ -46,6 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       return () => mediaQuery.removeEventListener('change', handler);
     } else {
       applyTheme(theme);
+      return undefined;
     }
   }, [theme]);
 

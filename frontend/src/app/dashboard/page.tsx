@@ -1,297 +1,156 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ThemeToggle } from '../components/ThemeToggle';
-
-// Types
-type Task = {
-    id: string;
-    title: string;
-    status: 'todo' | 'in_progress' | 'done';
-    priority: 'low' | 'medium' | 'high';
-    createdAt: string;
-};
-
-type Habit = {
-    id: string;
-    name: string;
-    color: string;
-    createdAt: string;
-};
-
-type HabitLog = {
-    id: string;
-    habitId: string;
-    date: string;
-    completed: boolean;
-};
-
-type HabitMatrixItem = {
-    habit: Habit;
-    logs: HabitLog[];
-};
-
-// Helper: Get last N days as YYYY-MM-DD
-function getLast30Days(): string[] {
-    const days = [];
-    for (let i = 29; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        days.push(d.toISOString().split('T')[0]);
-    }
-    return days;
-}
+import { TasksList } from '@/components/tasks/TasksList';
+import { useAuth } from '@/app/providers/AuthProvider';
+import {
+    LayoutDashboard,
+    Calendar,
+    Target,
+    TrendingUp,
+    Settings,
+    LogOut,
+    Loader2
+} from 'lucide-react';
 
 export default function DashboardPage() {
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [habits, setHabits] = useState<HabitMatrixItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [newTask, setNewTask] = useState('');
-    const [newHabit, setNewHabit] = useState('');
+    const router = useRouter();
+    const { user, isLoading, signOut } = useAuth();
 
-    const last30Days = getLast30Days();
-    const today = new Date().toISOString().split('T')[0];
-
-    // Fetch Tasks
+    // Redirect to login if not authenticated
     useEffect(() => {
-        fetch('http://localhost:8001/api/tasks')
-            .then(res => res.json())
-            .then(data => {
-                setTasks(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error('Failed to fetch tasks:', err);
-                setLoading(false);
-            });
-    }, []);
-
-    // Fetch Habits Matrix
-    useEffect(() => {
-        fetch('http://localhost:8001/api/habits/matrix')
-            .then(res => res.json())
-            .then(data => setHabits(data))
-            .catch(err => console.error('Failed to fetch habits:', err));
-    }, []);
-
-    // Create Task
-    const handleCreateTask = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newTask.trim()) return;
-
-        try {
-            const res = await fetch('http://localhost:8001/api/tasks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newTask, priority: 'medium' }),
-            });
-            const createdTask = await res.json();
-            setTasks(prev => [createdTask, ...prev]);
-            setNewTask('');
-        } catch (error) {
-            console.error('Error creating task:', error);
+        if (!isLoading && !user) {
+            router.push('/login');
         }
+    }, [user, isLoading, router]);
+
+    const handleSignOut = async () => {
+        await signOut();
+        router.push('/login');
     };
 
-    // Complete Task
-    const handleComplete = async (id: string) => {
-        try {
-            await fetch(`http://localhost:8001/api/tasks/${id}/complete`, {
-                method: 'PATCH',
-            });
-            setTasks(prev => prev.map(t =>
-                t.id === id ? { ...t, status: 'done' } : t
-            ));
-        } catch (error) {
-            console.error('Error completing task:', error);
-        }
-    };
+    // Show loading while checking auth
+    if (isLoading) {
+        return (
+            <div className="auth-container">
+                <Loader2 size={32} className="spin" />
+            </div>
+        );
+    }
 
-    // Create Habit
-    const handleCreateHabit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newHabit.trim()) return;
-
-        try {
-            const res = await fetch('http://localhost:8001/api/habits', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newHabit }),
-            });
-            const createdHabit = await res.json();
-            setHabits(prev => [...prev, { habit: createdHabit, logs: [] }]);
-            setNewHabit('');
-        } catch (error) {
-            console.error('Error creating habit:', error);
-        }
-    };
-
-    // Toggle Habit Log
-    const handleToggleHabit = async (habitId: string, date: string) => {
-        try {
-            const res = await fetch(`http://localhost:8001/api/habits/${habitId}/toggle`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date }),
-            });
-            const updatedLog = await res.json();
-
-            setHabits(prev => prev.map(item => {
-                if (item.habit.id !== habitId) return item;
-
-                const existingLogIndex = item.logs.findIndex(l => l.date === date);
-                if (existingLogIndex !== -1) {
-                    const newLogs = [...item.logs];
-                    newLogs[existingLogIndex] = updatedLog;
-                    return { ...item, logs: newLogs };
-                } else {
-                    return { ...item, logs: [...item.logs, updatedLog] };
-                }
-            }));
-        } catch (error) {
-            console.error('Error toggling habit:', error);
-        }
-    };
-
-    // Check if a habit was completed on a specific date
-    const isHabitComplete = (logs: HabitLog[], date: string) => {
-        return logs.some(log => log.date === date && log.completed);
-    };
-
-    const activeTasks = tasks.filter(t => t.status !== 'done');
-    const doneTasks = tasks.filter(t => t.status === 'done');
+    // Don't render if not authenticated
+    if (!user) {
+        return null;
+    }
 
     return (
-        <div className="dashboard-container">
-            {/* Top Bar: Mission Control Stats */}
-            <header className="dashboard-header">
-                <Link href="/" className="nav-logo" style={{ marginRight: 'auto' }}>LifeOS</Link>
-                <div className="stat-ticker">
-                    <span className="stat-label">FOCUS_LEVEL</span>
-                    <span className="stat-value text-green">OPTIMAL</span>
+        <div className="dashboard-layout">
+            {/* Sidebar */}
+            <aside className="dashboard-sidebar">
+                <div className="sidebar-header">
+                    <Link href="/" className="sidebar-logo">
+                        <span className="logo-icon">◈</span>
+                        <span className="logo-text">LifeOS</span>
+                    </Link>
                 </div>
-                <div className="stat-ticker">
-                    <span className="stat-label">TASKS_PENDING</span>
-                    <span className="stat-value">{activeTasks.length}</span>
-                </div>
-                <div className="stat-ticker">
-                    <span className="stat-label">HABITS_TRACKED</span>
-                    <span className="stat-value">{habits.length}</span>
-                </div>
-                <div className="stat-ticker">
-                    <span className="stat-label">SYSTEM_STATUS</span>
-                    <span className="stat-value text-blue">ONLINE</span>
-                </div>
-                <ThemeToggle />
-            </header>
 
-            <main className="dashboard-grid">
-                {/* Left Col: Focus Queue */}
-                <div className="dashboard-card focus-queue">
-                    <div className="card-header">
-                        <h3>Priority Queue</h3>
-                        <span className="badge">{activeTasks.length} OPEN</span>
+                <nav className="sidebar-nav">
+                    <Link href="/dashboard" className="nav-item active">
+                        <LayoutDashboard size={20} />
+                        <span>Dashboard</span>
+                    </Link>
+                    <a href="#" className="nav-item" onClick={(e) => e.preventDefault()}>
+                        <Calendar size={20} />
+                        <span>Calendar</span>
+                    </a>
+                    <a href="#" className="nav-item" onClick={(e) => e.preventDefault()}>
+                        <Target size={20} />
+                        <span>Habits</span>
+                    </a>
+                    <a href="#" className="nav-item" onClick={(e) => e.preventDefault()}>
+                        <TrendingUp size={20} />
+                        <span>Analytics</span>
+                    </a>
+                </nav>
+
+                <div className="sidebar-footer">
+                    <a href="#" className="nav-item" onClick={(e) => e.preventDefault()}>
+                        <Settings size={20} />
+                        <span>Settings</span>
+                    </a>
+                    <button className="nav-item" onClick={handleSignOut}>
+                        <LogOut size={20} />
+                        <span>Sign Out</span>
+                    </button>
+                    <ThemeToggle />
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="dashboard-main">
+                {/* Top Bar */}
+                <header className="dashboard-topbar">
+                    <div className="topbar-left">
+                        <h1>Dashboard</h1>
+                        <span className="topbar-date">
+                            {new Date().toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                month: 'long',
+                                day: 'numeric'
+                            })}
+                        </span>
                     </div>
+                </header>
 
-                    <div className="task-input-wrapper">
-                        <span className="prompt-char">&gt;</span>
-                        <form onSubmit={handleCreateTask} style={{ width: '100%' }}>
-                            <input
-                                type="text"
-                                value={newTask}
-                                onChange={(e) => setNewTask(e.target.value)}
-                                placeholder="Initialize new objective..."
-                                className="quick-capture-input"
-                                autoFocus
-                            />
-                        </form>
-                    </div>
+                {/* Dashboard Grid */}
+                <div className="dashboard-content">
+                    {/* Tasks Section - Main Focus */}
+                    <section className="dashboard-section tasks-section">
+                        <TasksList />
+                    </section>
 
-                    <div className="task-list">
-                        {loading ? (
-                            <div className="loading-state">Syncing Protocol...</div>
-                        ) : activeTasks.length === 0 ? (
-                            <div className="empty-state">No active directives. System idle.</div>
-                        ) : (
-                            activeTasks.map(task => (
-                                <div key={task.id} className="task-item">
-                                    <button
-                                        className="task-checkbox"
-                                        onClick={() => handleComplete(task.id)}
+                    {/* Quick Stats */}
+                    <aside className="dashboard-aside">
+                        <div className="stats-card">
+                            <h3>Today&apos;s Progress</h3>
+                            <div className="progress-ring">
+                                <svg viewBox="0 0 36 36" className="circular-chart">
+                                    <path
+                                        className="circle-bg"
+                                        d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
                                     />
-                                    <span className="task-title">{task.title}</span>
-                                    <span className={`task-priority ${task.priority}`}>{task.priority}</span>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
+                                    <path
+                                        className="circle"
+                                        strokeDasharray="0, 100"
+                                        d="M18 2.0845
+                      a 15.9155 15.9155 0 0 1 0 31.831
+                      a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    />
+                                    <text x="18" y="20.35" className="percentage">0%</text>
+                                </svg>
+                            </div>
+                            <p className="stats-note">Complete tasks to see progress</p>
+                        </div>
 
-                {/* Right Col: Sidebar */}
-                <div className="dashboard-sidebar">
-                    {/* Recent Completions */}
-                    <div className="dashboard-card">
-                        <div className="card-header">
-                            <h3>Recent Completions</h3>
+                        <div className="stats-card">
+                            <h3>Focus Time</h3>
+                            <div className="stat-value">0h 0m</div>
+                            <p className="stats-note">Start a focus session</p>
                         </div>
-                        <div className="log-list">
-                            {doneTasks.slice(0, 5).map(task => (
-                                <div key={task.id} className="log-item">
-                                    <span className="log-icon">✓</span>
-                                    <span className="log-text">{task.title}</span>
-                                </div>
-                            ))}
+
+                        <div className="stats-card">
+                            <h3>Streak</h3>
+                            <div className="stat-value">🔥 0 days</div>
+                            <p className="stats-note">Complete daily goals</p>
                         </div>
-                    </div>
+                    </aside>
                 </div>
             </main>
-
-            {/* Habit Matrix Section */}
-            <section className="dashboard-card habit-matrix-section">
-                <div className="card-header">
-                    <h3>Habit Matrix</h3>
-                    <span className="badge">{habits.length} TRACKED</span>
-                </div>
-
-                {/* Add Habit Input */}
-                <div className="task-input-wrapper">
-                    <span className="prompt-char">+</span>
-                    <form onSubmit={handleCreateHabit} style={{ width: '100%' }}>
-                        <input
-                            type="text"
-                            value={newHabit}
-                            onChange={(e) => setNewHabit(e.target.value)}
-                            placeholder="Track new habit..."
-                            className="quick-capture-input"
-                        />
-                    </form>
-                </div>
-
-                {/* Matrix Grid */}
-                <div className="habit-matrix">
-                    {habits.length === 0 ? (
-                        <div className="empty-state">No habits tracked. Add one above.</div>
-                    ) : (
-                        habits.map(({ habit, logs }) => (
-                            <div key={habit.id} className="habit-row">
-                                <span className="habit-name">{habit.name}</span>
-                                <div className="habit-grid">
-                                    {last30Days.map(date => (
-                                        <button
-                                            key={date}
-                                            className={`habit-cell ${isHabitComplete(logs, date) ? 'completed' : ''} ${date === today ? 'today' : ''}`}
-                                            onClick={() => handleToggleHabit(habit.id, date)}
-                                            title={date}
-                                            style={{ '--habit-color': habit.color } as React.CSSProperties}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </section>
         </div>
     );
 }
